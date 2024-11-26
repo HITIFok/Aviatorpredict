@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviator Flight Tracker avec Prédiction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        iframe {
+            width: 100%;
+            height: 85vh;
+            border: none;
+        }
+        #control-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #343a40;
+            color: #fff;
+            padding: 10px;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            max-height: 15vh;
+            z-index: 1000;
+        }
+        #aviator-history {
+            font-size: 14px;
+            padding: 5px 10px;
+            background: #212529;
+            border-radius: 5px;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        #aviator-prediction {
+            font-size: 16px;
+            padding: 5px 10px;
+            background: #ffc107;
+            border-radius: 5px;
+            color: #000;
+            font-weight: bold;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="https://bet261.mg/instant-games/em/aviator-spribe" title="Aviator Game"></iframe>
+    <div id="control-panel">
+        <div id="aviator-history">
+            <strong>Historique des vols (temps réel) :</strong>
+            <ul id="flight-list"></ul>
+        </div>
+        <div id="aviator-prediction">
+            <strong>Prédiction :</strong>
+            <span id="predicted-multiplier">Non disponible</span>
+        </div>
+    </div>
+    <script>
+        const websocketUrl = "wss://af-south-1-game5.spribegaming.com/BlueBox/websocket";
+        let ws;
+
+        function connectWebSocket() {
+            ws = new WebSocket(websocketUrl);
+
+            ws.onopen = function () {
+                console.log("WebSocket connecté au serveur :", websocketUrl);
+            };
+
+            ws.onmessage = function (event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    processWebSocketMessage(message);
+                } catch (error) {
+                    console.error("Erreur de traitement du message WebSocket :", error);
+                }
+            };
+
+            ws.onclose = function () {
+                console.warn("WebSocket déconnecté. Reconnexion dans 5 secondes...");
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = function (error) {
+                console.error("Erreur WebSocket :", error);
+            };
+        }
+
+        function processWebSocketMessage(message) {
+            if (message.type === "flightData") {
+                const multiplierValue = parseFloat(message.multiplier);
+                const currentTime = new Date().toLocaleTimeString();
+
+                if (!isNaN(multiplierValue)) {
+                    displayFlightHistory(multiplierValue, currentTime);
+
+                    // Mettre à jour la prédiction
+                    const predictedNext = predictNextMultiplier();
+                    displayPrediction(predictedNext);
+                }
+            }
+        }
+
+        function displayFlightHistory(multiplier, time) {
+            const flightList = document.getElementById('flight-list');
+            const newFlight = document.createElement('li');
+            newFlight.textContent = `Multiplicateur : ${multiplier.toFixed(2).replace('.', ',')}X - Heure : ${time}`;
+            flightList.appendChild(newFlight);
+
+            // Scroll automatique vers le bas pour voir le dernier vol
+            flightList.scrollTop = flightList.scrollHeight;
+        }
+
+        function predictNextMultiplier() {
+            // Localiser l'élément contenant la clé
+            const keyElement = document.querySelector('div.key');
+            if (!keyElement) return null;
+
+            const key = keyElement.textContent.trim();
+            if (!key) return null;
+
+            // Convertir la clé en un multiplicateur
+            const asciiSum = key.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+            const predicted = (asciiSum % 10000) / 100; // Transformer en format "XX,XX"
+
+            return predicted;
+        }
+
+        function displayPrediction(predictedNext) {
+            const predictionSpan = document.getElementById('predicted-multiplier');
+            const predictionText = predictedNext !== null
+                ? `${predictedNext.toFixed(2).replace('.', ',')}X`
+                : "Non disponible";
+
+            predictionSpan.textContent = predictionText;
+            console.log(`Prédiction affichée : ${predictionText}`);
+        }
+
+        // Démarre la connexion WebSocket
+        connectWebSocket();
+    </script>
+</body>
+</html>
